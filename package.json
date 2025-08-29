@@ -1,0 +1,14 @@
+{
+  "name": "nleguk",
+  "version": "1.0.0",
+  "main": "server_test.js",
+  "scripts": {
+    "dev": "node server_test.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
