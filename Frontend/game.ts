@@ -10,7 +10,38 @@ var vertexBuffer;
 var vao;
 var vertexLength;
 var colourBuffer;
-var tiles = Array.from({length: 357}, () => [Math.random(), Math.random()]);
+var vertexPos;
+
+class Tile{
+  location: number[];
+  data: number[][];
+  size: number;
+
+  constructor(location: number[], size: number){
+    this.location = location;
+    this.data = new Array(size * 2).fill(new Array(size * 2).fill(0));
+    this.size = size;
+  }
+
+  GetTile(location){
+    var lookup = [location[0] - this.location[0] + this.size, location[1] - this.location[1] + this.size];
+    return this.data[lookup[0]][lookup[1]];
+  }
+}
+ 
+var tile = GenerateTiles([0,0], (loc) => {
+  return ((loc[0] * .23 + loc[1] * .85) + 100) % 1;
+});
+
+function GenerateTiles(location: number[], tileGenFunction: (location: number[]) => number){
+  var newTile = new Tile(location, 32);
+  newTile.data = newTile.data.map((col, colIndex) =>{
+    return col.map((row, rowIndex) =>{
+      return tileGenFunction([location[0] + colIndex, location[1] + rowIndex]);
+    });
+  });
+  return newTile;
+}
 
 function CompileShader(source, type, gl){
     var shader = gl.createShader(type);
@@ -75,13 +106,13 @@ function GetGridTile(tiles, evalFunction){
   return gridTiles;
 }
 
-function GetGridVertexInformation(vertices, evalFunction : (tile: number[], vertex: number[]) => number[]){
+function GetGridVertexInformation(vertices, offset, evalFunction : (tilePos: number[], vertex: number[]) => number[]){
   var gridInfo: number[] = [];
   for (let ii = 0; ii < vertices.length / 12; ii++){
-    var tile = [vertices[ii * 12], vertices[ii * 12 + 1]];
+    var tilePos = [vertices[ii * 12] + offset[0], vertices[ii * 12 + 1] + offset[1]];
     for (let jj = 0; jj < 6; jj++){
-      var vertex = [vertices[ii * 12 + jj * 2], vertices[ii * 12 + jj * 2 + 1]];
-      gridInfo = gridInfo.concat(evalFunction(tile, vertex));
+      var vertex = [vertices[ii * 12 + jj * 2] + offset[0], vertices[ii * 12 + jj * 2 + 1]] + offset[1];
+      gridInfo = gridInfo.concat(evalFunction(tilePos, vertex));
     }
   }
   return gridInfo;
@@ -94,7 +125,7 @@ function Init(){
   vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
 
-  var vertexPos = GetGridVertices(TILE_SIZE, 640, 480);
+  vertexPos = GetGridVertices(TILE_SIZE, 640, 480);
   vertexLength = vertexPos.length;
 
   vertexBuffer = gl.createBuffer();
@@ -105,16 +136,14 @@ function Init(){
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
-  var vertexCol = GetGridVertexInformation(vertexPos, 
-    (tile, vertex) => {
-      return [(100 + vertex[0] + tile[0] * .73) % 1, (100 + vertex[1] * .46) % 1, 1];
+  var vertexCol = GetGridVertexInformation(vertexPos, [0,0],
+    (tilePos, vertex) => {
+      return [tile.GetTile(tilePos), Math.sin(tile.GetTile(tilePos)), Math.cos(tile.GetTile(tilePos))];
     }
   );
-  console.log(vertexCol);
   colourBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexCol), gl.DYNAMIC_DRAW);
-  console.log(vertexCol);
 
   var locCol = gl.getAttribLocation(program, "inCol");
   gl.enableVertexAttribArray(locCol);
@@ -131,7 +160,6 @@ function Init(){
 
 function UpdateGame(deltaTime){
   offset += deltaTime / 1000;
-  offset = offset % 1;
 }
 
 var offset = 0;
@@ -141,6 +169,13 @@ function UpdateDisplay(){
   var scaleOffsetValue = GetScaleOffset(TILE_SIZE, 640, 480, [offset, offset]);
   gl.uniform4fv(scaleOffset, scaleOffsetValue);
 
+  var vertexCol = GetGridVertexInformation(vertexPos, [Math.floor(offset), Math.floor(offset)],
+    (tilePos, vertex) => {
+      return [tile.GetTile(tilePos), Math.sin(tile.GetTile(tilePos)), Math.cos(tile.GetTile(tilePos))];
+    }
+  );
+  gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexCol), gl.DYNAMIC_DRAW);
 
   gl.clearColor(1,0,0,1);
   gl.clear(gl.COLOR_BUFFER_BIT);
