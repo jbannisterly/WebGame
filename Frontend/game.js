@@ -8,6 +8,8 @@ var program;
 var vertexBuffer;
 var vao;
 var vertexLength;
+var colourBuffer;
+var tiles = Array.from({length: 336}, () => [Math.random(), Math.random()]);
 
 function CompileShader(source, type, gl){
     var shader = gl.createShader(type);
@@ -62,9 +64,22 @@ function GetScaleOffset(tileSize, width, height, subOffset){
   ];
 }
 
+function GetGridTile(tiles){
+  var gridTiles = [];
+  for (let ii = 0; ii < tiles.length; ii++){
+    for (let jj = 0; jj < 6; jj++){
+      gridTiles = gridTiles.concat(tiles[ii]);
+    }
+  }
+  return gridTiles;
+}
+
 function Init(){
   program = CreateProgram({v: VERTEX_SHADER_SIMPLE, f: FRAGMENT_SHADER_SIMPLE}, gl);
   gl.useProgram(program);
+
+  vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
 
   var vertexPos = GetGridVertices(32, 640, 480);
   vertexLength = vertexPos.length;
@@ -73,32 +88,42 @@ function Init(){
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPos), gl.STATIC_DRAW);
 
-  console.log(vertexPos)
-
-  vao = gl.createVertexArray();
-  gl.bindVertexArray(vao);
-
   var loc = gl.getAttribLocation(program, "position");
-  console.log(loc);
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  var vertexCol = GetGridTile(tiles);
+  console.log(tiles);
+  colourBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexCol), gl.DYNAMIC_DRAW);
+  console.log(vertexCol);
+
+  var locCol = gl.getAttribLocation(program, "inCol");
+  gl.enableVertexAttribArray(locCol);
+  gl.vertexAttribPointer(locCol, 2, gl.FLOAT, false, 0, 0);
 
   gl.useProgram(program);
 
   var scaleOffset = gl.getUniformLocation(program, "scaleOffset");
-  console.log(scaleOffset);
   var scaleOffsetValue = GetScaleOffset(32, 640, 480, [0,0]);
-  console.log(scaleOffsetValue);
   gl.uniform4fv(scaleOffset, scaleOffsetValue);
 
   requestAnimationFrame(MainLoop);
 }
 
-function UpdateGame(){
-
+function UpdateGame(deltaTime){
+  offset += deltaTime / 1000;
+  offset = offset % 1;
 }
 
+var offset = 0;
+
 function UpdateDisplay(){
+  var scaleOffset = gl.getUniformLocation(program, "scaleOffset");
+  var scaleOffsetValue = GetScaleOffset(32, 640, 480, [offset, offset]);
+  gl.uniform4fv(scaleOffset, scaleOffsetValue);
+
 
   gl.clearColor(1,0,0,1);
   gl.clear(gl.COLOR_BUFFER_BIT);
@@ -123,11 +148,12 @@ precision highp float;
 
 
 in vec2 position;
+in vec2 inCol;
 uniform vec4 scaleOffset;
 out vec4 colour;
 
 void main(){
-  colour = vec4(0., 0., 1., 1.);
+  colour = vec4(inCol.xy, 1., 1.);
   gl_Position = vec4(position.xy * scaleOffset.xy + scaleOffset.zw, 1., 1.);
 }
 `;
