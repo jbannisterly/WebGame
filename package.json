@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "main": "server_test.js",
   "scripts": {
-    "dev": "node server_test.js"
+    "dev": "node server_test.js & tsc Frontend/game.ts --outfile Frontend/game.js --watch"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "typescript": "^5.9.2"
   }
 }

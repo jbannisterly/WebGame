@@ -1,7 +1,8 @@
-const canvas = document.getElementById("can");
+const canvas : HTMLCanvasElement = document.getElementById("can") as HTMLCanvasElement;
 /** @type {WebGLRenderingContext} */
-const gl = canvas.getContext("webgl2");
+const gl : WebGL2RenderingContext = canvas.getContext("webgl2") as WebGL2RenderingContext;
 
+const TILE_SIZE = 32;
 
 var startTime = -1;
 var program;
@@ -9,7 +10,7 @@ var vertexBuffer;
 var vao;
 var vertexLength;
 var colourBuffer;
-var tiles = Array.from({length: 336}, () => [Math.random(), Math.random()]);
+var tiles = Array.from({length: 357}, () => [Math.random(), Math.random()]);
 
 function CompileShader(source, type, gl){
     var shader = gl.createShader(type);
@@ -31,9 +32,9 @@ function CreateProgram(programInfo, gl){
 }
 
 function GetGridVertices(tileSize, width, height){
-  var grid = [];
-  var tileW = Math.ceil(width / tileSize) + 1;
-  var tileH = Math.ceil(height / tileSize) + 1;
+  var grid : number[] = [];
+  var tileW = Math.ceil(width / 2 / tileSize);
+  var tileH = Math.ceil(height / 2 / tileSize);
   const square = [
     [0., 0.], 
     [1., 0.], 
@@ -42,29 +43,29 @@ function GetGridVertices(tileSize, width, height){
     [1., 0.],
     [1., 1.], 
   ];
-  for (let ii = 0; ii < tileW; ii++){
-    for (let jj = 0; jj < tileH; jj++){
+  for (let ii = -tileW; ii < tileW + 1; ii++){
+    for (let jj = -tileH; jj < tileH + 1; jj++){
       for (let item = 0; item < square.length; item++){
         grid.push(square[item][0] + ii);
-          grid.push(square[item][1] + jj);
+        grid.push(square[item][1] + jj);
       }
     }
   }
   return grid;
 }
 
-function GetScaleOffset(tileSize, width, height, subOffset){
+function GetScaleOffset(tileSize, width, height, position){
   var wScale = tileSize / width * 2;
   var hScale = tileSize / height * 2
   return [
     wScale,
     hScale,
-    subOffset[0] * wScale -1,
-    subOffset[1] * hScale - 1,
+    -(position[0] % 1) * wScale,
+    -(position[1] % 1) * hScale,
   ];
 }
 
-function GetGridTile(tiles){
+function GetGridTile(tiles, evalFunction){
   var gridTiles = [];
   for (let ii = 0; ii < tiles.length; ii++){
     for (let jj = 0; jj < 6; jj++){
@@ -81,7 +82,7 @@ function Init(){
   vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
 
-  var vertexPos = GetGridVertices(32, 640, 480);
+  var vertexPos = GetGridVertices(TILE_SIZE, 640, 480);
   vertexLength = vertexPos.length;
 
   vertexBuffer = gl.createBuffer();
@@ -92,7 +93,7 @@ function Init(){
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
-  var vertexCol = GetGridTile(tiles);
+  var vertexCol = GetGridTile(tiles, () => {});
   console.log(tiles);
   colourBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
@@ -106,7 +107,7 @@ function Init(){
   gl.useProgram(program);
 
   var scaleOffset = gl.getUniformLocation(program, "scaleOffset");
-  var scaleOffsetValue = GetScaleOffset(32, 640, 480, [0,0]);
+  var scaleOffsetValue = GetScaleOffset(TILE_SIZE, 640, 480, [0,0]);
   gl.uniform4fv(scaleOffset, scaleOffsetValue);
 
   requestAnimationFrame(MainLoop);
@@ -121,7 +122,7 @@ var offset = 0;
 
 function UpdateDisplay(){
   var scaleOffset = gl.getUniformLocation(program, "scaleOffset");
-  var scaleOffsetValue = GetScaleOffset(32, 640, 480, [offset, offset]);
+  var scaleOffsetValue = GetScaleOffset(TILE_SIZE, 640, 480, [offset, offset]);
   gl.uniform4fv(scaleOffset, scaleOffsetValue);
 
 
@@ -133,7 +134,7 @@ function UpdateDisplay(){
 
 function MainLoop(currentTime){
     if (startTime != -1) {
-        deltaTime = currentTime - startTime;
+        var deltaTime = currentTime - startTime;
         UpdateGame(deltaTime);
     }
     startTime = currentTime;
