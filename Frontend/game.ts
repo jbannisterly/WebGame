@@ -10,6 +10,7 @@ var vertexBuffer;
 var vao;
 var vertexLength;
 var colourBuffer;
+var textureBuffer;
 var vertexPos;
 
 class Tile{
@@ -61,6 +62,27 @@ function CreateProgram(programInfo, gl){
   gl.linkProgram(program);
   return program;
 }
+
+function CreateTexture(src: string){
+  var image : HTMLImageElement = new Image();
+  var texture = CreateDefaultTexture();
+  image.src = src;
+  image.onload = () => {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    gl.generateMipmap(gl.TEXTURE_2D);
+  };
+  return texture;
+}
+
+function CreateDefaultTexture(){
+  var texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 0, 128, 255]));
+  return texture;
+}
+
+CreateTexture("res/tiles.png");
 
 function GetGridVertices(tileSize, width, height){
   var grid : number[] = [];
@@ -145,9 +167,18 @@ function Init(){
   gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexCol), gl.DYNAMIC_DRAW);
 
+  vertexBuffer = gl.createBuffer();
+
   var locCol = gl.getAttribLocation(program, "inCol");
   gl.enableVertexAttribArray(locCol);
   gl.vertexAttribPointer(locCol, 3, gl.FLOAT, false, 0, 0);
+  console.log(locCol + " col");
+
+  var locTex = gl.getAttribLocation(program, "inTex");
+  gl.enableVertexAttribArray(locTex);
+  gl.vertexAttribPointer(locTex, 2, gl.FLOAT, false, 0, 0);
+  console.log(locTex + " tex");
+
 
   gl.useProgram(program);
 
@@ -177,6 +208,16 @@ function UpdateDisplay(){
   gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexCol), gl.DYNAMIC_DRAW);
 
+  var vertexTex = GetGridVertexInformation(vertexPos, [Math.floor(offset), Math.floor(offset)],
+    (tilePos, vertex) => {
+      var base = [0, 0];
+      return [base[0] + vertex[0] - tilePos[0], base[1] + vertex[1] - tilePos[1]];
+    }
+  );
+  gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexTex), gl.DYNAMIC_DRAW);
+
+
   gl.clearColor(1,0,0,1);
   gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -201,11 +242,14 @@ precision highp float;
 
 in vec2 position;
 in vec3 inCol;
+in vec2 inTex;
 uniform vec4 scaleOffset;
-out vec4 colour;
+out vec4 vertColour;
+out vec2 vertTex;
 
 void main(){
-  colour = vec4(inCol.xyz, 1.);
+  vertColour = vec4(inCol.xyz, 1.);
+  vertTex = inTex;
   gl_Position = vec4(position.xy * scaleOffset.xy + scaleOffset.zw, 1., 1.);
 }
 `;
@@ -213,13 +257,15 @@ void main(){
 const FRAGMENT_SHADER_SIMPLE = 
 `#version 300 es
 
-precision highp float;
+precision mediump float;
 
-in vec4 colour;
+in vec4 vertColour;
+in vec2 vertTex;
+uniform sampler2D tileMap;
 out vec4 fragColour;
 
 void main(){
-  fragColour = colour;
+  fragColour = vec4(texture(tileMap, vertTex)) * vertColour;
 }
 `
 
