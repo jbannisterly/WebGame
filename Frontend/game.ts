@@ -75,6 +75,18 @@ function GetGridTile(tiles, evalFunction){
   return gridTiles;
 }
 
+function GetGridVertexInformation(vertices, evalFunction : (tile: number[], vertex: number[]) => number[]){
+  var gridInfo: number[] = [];
+  for (let ii = 0; ii < vertices.length / 12; ii++){
+    var tile = [vertices[ii * 12], vertices[ii * 12 + 1]];
+    for (let jj = 0; jj < 6; jj++){
+      var vertex = [vertices[ii * 12 + jj * 2], vertices[ii * 12 + jj * 2 + 1]];
+      gridInfo = gridInfo.concat(evalFunction(tile, vertex));
+    }
+  }
+  return gridInfo;
+}
+
 function Init(){
   program = CreateProgram({v: VERTEX_SHADER_SIMPLE, f: FRAGMENT_SHADER_SIMPLE}, gl);
   gl.useProgram(program);
@@ -93,8 +105,12 @@ function Init(){
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
-  var vertexCol = GetGridTile(tiles, () => {});
-  console.log(tiles);
+  var vertexCol = GetGridVertexInformation(vertexPos, 
+    (tile, vertex) => {
+      return [(100 + vertex[0] + tile[0] * .73) % 1, (100 + vertex[1] * .46) % 1, 1];
+    }
+  );
+  console.log(vertexCol);
   colourBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexCol), gl.DYNAMIC_DRAW);
@@ -102,7 +118,7 @@ function Init(){
 
   var locCol = gl.getAttribLocation(program, "inCol");
   gl.enableVertexAttribArray(locCol);
-  gl.vertexAttribPointer(locCol, 2, gl.FLOAT, false, 0, 0);
+  gl.vertexAttribPointer(locCol, 3, gl.FLOAT, false, 0, 0);
 
   gl.useProgram(program);
 
@@ -149,12 +165,12 @@ precision highp float;
 
 
 in vec2 position;
-in vec2 inCol;
+in vec3 inCol;
 uniform vec4 scaleOffset;
 out vec4 colour;
 
 void main(){
-  colour = vec4(inCol.xy, 1., 1.);
+  colour = vec4(inCol.xyz, 1.);
   gl_Position = vec4(position.xy * scaleOffset.xy + scaleOffset.zw, 1., 1.);
 }
 `;
