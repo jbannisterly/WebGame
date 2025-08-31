@@ -2,7 +2,7 @@ const canvas : HTMLCanvasElement = document.getElementById("can") as HTMLCanvasE
 /** @type {WebGLRenderingContext} */
 const gl : WebGL2RenderingContext = canvas.getContext("webgl2") as WebGL2RenderingContext;
 
-const TILE_SIZE = 256;
+const TILE_SIZE = 32;
 
 var startTime = -1;
 var program;
@@ -70,7 +70,9 @@ function CreateTexture(src: string){
   image.onload = () => {
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    // gl.generateMipmap(gl.TEXTURE_2D);
   };
   return texture;
 }
@@ -82,7 +84,7 @@ function CreateDefaultTexture(){
   return texture;
 }
 
-CreateTexture("res/texture_test.png");
+CreateTexture("res/tiles.png");
 
 function GetGridVertices(tileSize, width, height){
   var grid : number[] = [];
@@ -142,7 +144,7 @@ function GetGridVertexInformation(vertices, offset, evalFunction : (tilePos: num
 
 function GetTextureCoords(vertexPos, offset2D){
   let textureSize = 1024;
-  let tileSize = 128;
+  let tileSize = 32;
 
   let nWidth = textureSize / tileSize;
   let tileRel = tileSize / textureSize;
@@ -150,7 +152,7 @@ function GetTextureCoords(vertexPos, offset2D){
 
   return GetGridVertexInformation(vertexPos, offset2D,
     (tilePos, vertex) => {
-      var index = 1;
+      var index = Math.sin(Math.sin(tilePos[0] * 23.3) * 34.2 + tilePos[1] * 324.23) * 23.2 % 1 > 0.5 ? 1 : 0;
       
       let base = [index % nWidth, nWidth - Math.floor(index / nWidth) - 1];
       let relative = [vertex[0] - tilePos[0], vertex[1] - tilePos[1]];
@@ -183,7 +185,7 @@ function Init(){
 
   var vertexCol = GetGridVertexInformation(vertexPos, [0,0],
     (tilePos, vertex) => {
-      return [tile.GetTile(tilePos), Math.sin(tile.GetTile(tilePos)), Math.cos(tile.GetTile(tilePos))];
+      return [tile.GetTile(vertex), Math.sin(tile.GetTile(vertex)), Math.cos(tile.GetTile(vertex))];
     }
   );
 
@@ -213,7 +215,7 @@ function Init(){
 }
 
 function UpdateGame(deltaTime){
-  // offset += deltaTime / 1000;
+  offset += deltaTime / 1000;
 }
 
 var offset = 0;
@@ -234,8 +236,6 @@ function UpdateDisplay(){
   var vertexTex = GetTextureCoords(vertexPos, [Math.floor(offset), Math.floor(offset)]);
   gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexTex), gl.DYNAMIC_DRAW);
-
-  console.log(vertexTex);
 
   gl.clearColor(1,0,0,1);
   gl.clear(gl.COLOR_BUFFER_BIT);
@@ -284,7 +284,7 @@ uniform sampler2D tileMap;
 out vec4 fragColour;
 
 void main(){
-  fragColour = vec4(texture(tileMap, vertTex).xyz, 1.) + vec4(0.01, 0.001, 0., 0.) * vertColour;
+  fragColour = vec4(texture(tileMap, vertTex).xyz, 1.) * vertColour;
 }
 `
 
