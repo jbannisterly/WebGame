@@ -2,7 +2,7 @@ const canvas : HTMLCanvasElement = document.getElementById("can") as HTMLCanvasE
 /** @type {WebGLRenderingContext} */
 const gl : WebGL2RenderingContext = canvas.getContext("webgl2") as WebGL2RenderingContext;
 
-const TILE_SIZE = 32;
+const TILE_SIZE = 256;
 
 var startTime = -1;
 var program;
@@ -82,7 +82,7 @@ function CreateDefaultTexture(){
   return texture;
 }
 
-CreateTexture("res/tiles.png");
+CreateTexture("res/texture_test.png");
 
 function GetGridVertices(tileSize, width, height){
   var grid : number[] = [];
@@ -133,11 +133,34 @@ function GetGridVertexInformation(vertices, offset, evalFunction : (tilePos: num
   for (let ii = 0; ii < vertices.length / 12; ii++){
     var tilePos = [vertices[ii * 12] + offset[0], vertices[ii * 12 + 1] + offset[1]];
     for (let jj = 0; jj < 6; jj++){
-      var vertex = [vertices[ii * 12 + jj * 2] + offset[0], vertices[ii * 12 + jj * 2 + 1]] + offset[1];
+      var vertex = [vertices[ii * 12 + jj * 2] + offset[0], vertices[ii * 12 + jj * 2 + 1] + offset[1]];
       gridInfo = gridInfo.concat(evalFunction(tilePos, vertex));
     }
   }
   return gridInfo;
+}
+
+function GetTextureCoords(vertexPos, offset2D){
+  let textureSize = 1024;
+  let tileSize = 128;
+
+  let nWidth = textureSize / tileSize;
+  let tileRel = tileSize / textureSize;
+  let pixel = 1 / textureSize;
+
+  return GetGridVertexInformation(vertexPos, offset2D,
+    (tilePos, vertex) => {
+      var index = 1;
+      
+      let base = [index % nWidth, nWidth - Math.floor(index / nWidth) - 1];
+      let relative = [vertex[0] - tilePos[0], vertex[1] - tilePos[1]];
+
+      return [
+        base[0] * tileRel + pixel / 2 + relative[0] * (tileRel - pixel), 
+        1 - base[1] * tileRel - pixel / 2 - relative[1] * (tileRel - pixel)
+      ];
+    }
+  );
 }
 
 function Init(){
@@ -163,17 +186,17 @@ function Init(){
       return [tile.GetTile(tilePos), Math.sin(tile.GetTile(tilePos)), Math.cos(tile.GetTile(tilePos))];
     }
   );
+
   colourBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexCol), gl.DYNAMIC_DRAW);
-
-  vertexBuffer = gl.createBuffer();
-
   var locCol = gl.getAttribLocation(program, "inCol");
   gl.enableVertexAttribArray(locCol);
   gl.vertexAttribPointer(locCol, 3, gl.FLOAT, false, 0, 0);
   console.log(locCol + " col");
 
+  textureBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
   var locTex = gl.getAttribLocation(program, "inTex");
   gl.enableVertexAttribArray(locTex);
   gl.vertexAttribPointer(locTex, 2, gl.FLOAT, false, 0, 0);
@@ -190,7 +213,7 @@ function Init(){
 }
 
 function UpdateGame(deltaTime){
-  offset += deltaTime / 1000;
+  // offset += deltaTime / 1000;
 }
 
 var offset = 0;
@@ -208,15 +231,11 @@ function UpdateDisplay(){
   gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexCol), gl.DYNAMIC_DRAW);
 
-  var vertexTex = GetGridVertexInformation(vertexPos, [Math.floor(offset), Math.floor(offset)],
-    (tilePos, vertex) => {
-      var base = [0, 0];
-      return [base[0] + vertex[0] - tilePos[0], base[1] + vertex[1] - tilePos[1]];
-    }
-  );
+  var vertexTex = GetTextureCoords(vertexPos, [Math.floor(offset), Math.floor(offset)]);
   gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexTex), gl.DYNAMIC_DRAW);
 
+  console.log(vertexTex);
 
   gl.clearColor(1,0,0,1);
   gl.clear(gl.COLOR_BUFFER_BIT);
@@ -248,7 +267,7 @@ out vec4 vertColour;
 out vec2 vertTex;
 
 void main(){
-  vertColour = vec4(inCol.xyz, 1.);
+  vertColour = vec4(inCol.x, 1., 1., 1.);
   vertTex = inTex;
   gl_Position = vec4(position.xy * scaleOffset.xy + scaleOffset.zw, 1., 1.);
 }
@@ -265,7 +284,7 @@ uniform sampler2D tileMap;
 out vec4 fragColour;
 
 void main(){
-  fragColour = vec4(texture(tileMap, vertTex)) * vertColour;
+  fragColour = vec4(texture(tileMap, vertTex).xyz, 1.) + vec4(0.01, 0.001, 0., 0.) * vertColour;
 }
 `
 
