@@ -1,3 +1,5 @@
+import { CompileShader } from "./webgl.js";
+
 const canvas : HTMLCanvasElement = document.getElementById("can") as HTMLCanvasElement;
 /** @type {WebGLRenderingContext} */
 const gl : WebGL2RenderingContext = canvas.getContext("webgl2") as WebGL2RenderingContext;
@@ -5,13 +7,13 @@ const gl : WebGL2RenderingContext = canvas.getContext("webgl2") as WebGL2Renderi
 const TILE_SIZE = 32;
 
 var startTime = -1;
-var program;
+var program: WebGLProgram;
 var vertexBuffer;
 var vao;
-var vertexLength;
-var colourBuffer;
-var textureBuffer;
-var vertexPos;
+var vertexLength: number;
+var colourBuffer: WebGLBuffer;
+var textureBuffer: WebGLBuffer;
+var vertexPos: number[];
 
 class Tile{
   location: number[];
@@ -24,7 +26,7 @@ class Tile{
     this.size = size;
   }
 
-  GetTile(location){
+  GetTile(location: number[]){
     var lookup = [location[0] - this.location[0] + this.size, location[1] - this.location[1] + this.size];
     return this.data[lookup[0]][lookup[1]];
   }
@@ -44,15 +46,7 @@ function GenerateTiles(location: number[], tileGenFunction: (location: number[])
   return newTile;
 }
 
-function CompileShader(source, type, gl){
-    var shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    console.log(gl.getShaderInfoLog(shader));
-    return shader;
-}
-
-function CreateProgram(programInfo, gl){
+function CreateProgram(programInfo: {[index: string]: string}, gl: WebGL2RenderingContext){
   var program = gl.createProgram();
   var vert = CompileShader(programInfo["v"], gl.VERTEX_SHADER, gl);
   var frag = CompileShader(programInfo["f"], gl.FRAGMENT_SHADER, gl);
@@ -86,7 +80,7 @@ function CreateDefaultTexture(){
 
 CreateTexture("res/tiles.png");
 
-function GetGridVertices(tileSize, width, height){
+function GetGridVertices(tileSize: number, width: number, height: number): number[]{
   var grid : number[] = [];
   var tileW = Math.ceil(width / 2 / tileSize);
   var tileH = Math.ceil(height / 2 / tileSize);
@@ -109,7 +103,7 @@ function GetGridVertices(tileSize, width, height){
   return grid;
 }
 
-function GetScaleOffset(tileSize, width, height, position){
+function GetScaleOffset(tileSize: number, width: number, height: number, position: number[]){
   var wScale = tileSize / width * 2;
   var hScale = tileSize / height * 2
   return [
@@ -120,8 +114,8 @@ function GetScaleOffset(tileSize, width, height, position){
   ];
 }
 
-function GetGridTile(tiles, evalFunction){
-  var gridTiles = [];
+function GetGridTile(tiles: number[]){
+  var gridTiles: number[] = [];
   for (let ii = 0; ii < tiles.length; ii++){
     for (let jj = 0; jj < 6; jj++){
       gridTiles = gridTiles.concat(tiles[ii]);
@@ -130,7 +124,7 @@ function GetGridTile(tiles, evalFunction){
   return gridTiles;
 }
 
-function GetGridVertexInformation(vertices, offset, evalFunction : (tilePos: number[], vertex: number[]) => number[]){
+function GetGridVertexInformation(vertices: number[], offset: number[], evalFunction : (tilePos: number[], vertex: number[]) => number[]){
   var gridInfo: number[] = [];
   for (let ii = 0; ii < vertices.length / 12; ii++){
     var tilePos = [vertices[ii * 12] + offset[0], vertices[ii * 12 + 1] + offset[1]];
@@ -142,7 +136,7 @@ function GetGridVertexInformation(vertices, offset, evalFunction : (tilePos: num
   return gridInfo;
 }
 
-function GetTextureCoords(vertexPos, offset2D){
+function GetTextureCoords(vertexPos: number[], offset2D: number[]){
   let textureSize = 1024;
   let tileSize = 32;
 
@@ -214,7 +208,7 @@ function Init(){
   requestAnimationFrame(MainLoop);
 }
 
-function UpdateGame(deltaTime){
+function UpdateGame(deltaTime: number){
   offset += deltaTime / 1000;
 }
 
@@ -243,7 +237,7 @@ function UpdateDisplay(){
   gl.drawArrays(gl.TRIANGLES, 0, vertexLength / 2);
 }
 
-function MainLoop(currentTime){
+function MainLoop(currentTime: number){
     if (startTime != -1) {
         var deltaTime = currentTime - startTime;
         UpdateGame(deltaTime);

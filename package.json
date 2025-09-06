@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "server_test.js",
   "scripts": {
-    "dev": "node server_test.js & tsc Frontend/game.ts --outfile Frontend/game.js --watch"
+    "dev": "node index.js & tsc --watch"
   },
   "author": "",
   "license": "ISC",
