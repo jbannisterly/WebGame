@@ -1,10 +1,12 @@
-import { CompileShader } from "./webgl.js";
+import {CreateTexture, CreateProgram } from "./webgl.js";
+import {Input} from "./input.js";
+
+const InputManager = new Input();
 
 const canvas : HTMLCanvasElement = document.getElementById("can") as HTMLCanvasElement;
-/** @type {WebGLRenderingContext} */
 const gl : WebGL2RenderingContext = canvas.getContext("webgl2") as WebGL2RenderingContext;
 
-const TILE_SIZE = 32;
+const TILE_SIZE = 64;
 
 var startTime = -1;
 var program: WebGLProgram;
@@ -45,40 +47,6 @@ function GenerateTiles(location: number[], tileGenFunction: (location: number[])
   });
   return newTile;
 }
-
-function CreateProgram(programInfo: {[index: string]: string}, gl: WebGL2RenderingContext){
-  var program = gl.createProgram();
-  var vert = CompileShader(programInfo["v"], gl.VERTEX_SHADER, gl);
-  var frag = CompileShader(programInfo["f"], gl.FRAGMENT_SHADER, gl);
-
-  gl.attachShader(program, vert);
-  gl.attachShader(program, frag);
-  gl.linkProgram(program);
-  return program;
-}
-
-function CreateTexture(src: string){
-  var image : HTMLImageElement = new Image();
-  var texture = CreateDefaultTexture();
-  image.src = src;
-  image.onload = () => {
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    // gl.generateMipmap(gl.TEXTURE_2D);
-  };
-  return texture;
-}
-
-function CreateDefaultTexture(){
-  var texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 0, 128, 255]));
-  return texture;
-}
-
-CreateTexture("res/tiles.png");
 
 function GetGridVertices(tileSize: number, width: number, height: number): number[]{
   var grid : number[] = [];
@@ -160,6 +128,8 @@ function GetTextureCoords(vertexPos: number[], offset2D: number[]){
 }
 
 function Init(){
+  CreateTexture("res/tiles.png", gl);
+
   program = CreateProgram({v: VERTEX_SHADER_SIMPLE, f: FRAGMENT_SHADER_SIMPLE}, gl);
   gl.useProgram(program);
 
@@ -209,17 +179,21 @@ function Init(){
 }
 
 function UpdateGame(deltaTime: number){
-  offset += deltaTime / 1000;
+  let movement = deltaTime * 0.004
+  if (InputManager.presses[65]) {offset[0] -= movement;}
+  if (InputManager.presses[68]) {offset[0] += movement;}
+  if (InputManager.presses[83]) {offset[1] -= movement;}
+  if (InputManager.presses[87]) {offset[1] += movement;}
 }
 
-var offset = 0;
+var offset = [0.,0.];
 
 function UpdateDisplay(){
   var scaleOffset = gl.getUniformLocation(program, "scaleOffset");
-  var scaleOffsetValue = GetScaleOffset(TILE_SIZE, 640, 480, [offset, offset]);
+  var scaleOffsetValue = GetScaleOffset(TILE_SIZE, 640, 480, offset);
   gl.uniform4fv(scaleOffset, scaleOffsetValue);
 
-  var vertexCol = GetGridVertexInformation(vertexPos, [Math.floor(offset), Math.floor(offset)],
+  var vertexCol = GetGridVertexInformation(vertexPos, [Math.floor(offset[0]), Math.floor(offset[1])],
     (tilePos, vertex) => {
       return [tile.GetTile(tilePos), Math.sin(tile.GetTile(tilePos)), Math.cos(tile.GetTile(tilePos))];
     }
@@ -227,7 +201,7 @@ function UpdateDisplay(){
   gl.bindBuffer(gl.ARRAY_BUFFER, colourBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexCol), gl.DYNAMIC_DRAW);
 
-  var vertexTex = GetTextureCoords(vertexPos, [Math.floor(offset), Math.floor(offset)]);
+  var vertexTex = GetTextureCoords(vertexPos, [Math.floor(offset[0]), Math.floor(offset[1])]);
   gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexTex), gl.DYNAMIC_DRAW);
 
@@ -251,7 +225,6 @@ const VERTEX_SHADER_SIMPLE =
 `#version 300 es
 
 precision highp float;
-
 
 in vec2 position;
 in vec3 inCol;
